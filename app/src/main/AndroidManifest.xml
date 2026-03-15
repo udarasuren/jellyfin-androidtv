@@ -129,5 +129,10 @@
             android:windowSoftInputMode="adjustNothing" />
 
         <activity android:name=".ui.playback.ExternalPlayerActivity" />
+
+        <!-- Cloudflare Zero Trust authentication -->
+        <activity
+            android:name=".auth.cloudflare.CloudflareAuthActivity"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

@@ -45,6 +45,8 @@ import org.jellyfin.androidtv.ui.search.SearchRepository
 import org.jellyfin.androidtv.ui.search.SearchRepositoryImpl
 import org.jellyfin.androidtv.ui.search.SearchViewModel
 import org.jellyfin.androidtv.ui.settings.compat.SettingsViewModel
+import org.jellyfin.androidtv.ui.composable.detail.DetailOverlayViewModel
+import org.jellyfin.androidtv.ui.home.HomeViewModel
 import org.jellyfin.androidtv.ui.startup.ServerAddViewModel
 import org.jellyfin.androidtv.ui.startup.StartupViewModel
 import org.jellyfin.androidtv.ui.startup.UserLoginViewModel
@@ -56,6 +58,10 @@ import org.jellyfin.androidtv.util.coil.CoilTimberLogger
 import org.jellyfin.androidtv.util.coil.createCoilConnectivityChecker
 import org.jellyfin.androidtv.util.sdk.SdkPlaybackHelper
 import org.jellyfin.sdk.android.androidDevice
+import org.jellyfin.androidtv.auth.cloudflare.CloudflareAuthInterceptor
+import org.jellyfin.androidtv.auth.cloudflare.CloudflareCookieStore
+import org.jellyfin.androidtv.auth.cloudflare.CloudflareDetector
+import org.jellyfin.androidtv.auth.cloudflare.createCloudflareOkHttpFactory
 import org.jellyfin.sdk.api.client.HttpClientOptions
 import org.jellyfin.sdk.api.okhttp.OkHttpFactory
 import org.jellyfin.sdk.createJellyfin
@@ -71,7 +77,10 @@ val defaultDeviceInfo = named("defaultDeviceInfo")
 val appModule = module {
 	// SDK
 	single(defaultDeviceInfo) { androidDevice(get()) }
-	single { OkHttpFactory() }
+	single { CloudflareCookieStore(androidContext()) }
+	single { CloudflareAuthInterceptor(get()) }
+	single { CloudflareDetector() }
+	single<OkHttpFactory> { createCloudflareOkHttpFactory(get()) }
 	single { HttpClientOptions() }
 	single {
 		createJellyfin {
@@ -145,13 +154,15 @@ val appModule = module {
 
 	viewModel { StartupViewModel(get(), get(), get(), get()) }
 	viewModel { UserLoginViewModel(get(), get(), get(), get(defaultDeviceInfo)) }
-	viewModel { ServerAddViewModel(get()) }
+	viewModel { ServerAddViewModel(get(), get()) }
 	viewModel { NextUpViewModel(get(), get(), get()) }
 	viewModel { StillWatchingViewModel(get(), get(), get(), get()) }
 	viewModel { PhotoPlayerViewModel(get()) }
 	viewModel { SearchViewModel(get()) }
 	viewModel { DreamViewModel(get(), get(), get(), get(), get()) }
 	viewModel { SettingsViewModel() }
+	viewModel { HomeViewModel(get(), get(), get(), get()) }
+	viewModel { DetailOverlayViewModel(get(), get()) }
 
 	single { BackgroundService(get(), get(), get(), get(), get()) }
 

@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
@@ -18,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.jellyfin.androidtv.auth.cloudflare.CloudflareAuthActivity
+import org.jellyfin.androidtv.auth.cloudflare.CloudflareAuthInterceptor
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.databinding.ActivityMainBinding
@@ -39,10 +42,26 @@ class MainActivity : FragmentActivity() {
 	private val navigationRepository by inject<NavigationRepository>()
 	private val sessionRepository by inject<SessionRepository>()
 	private val userRepository by inject<UserRepository>()
+	private val cloudflareAuthInterceptor by inject<CloudflareAuthInterceptor>()
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
 	private val workManager by inject<WorkManager>()
 
 	private lateinit var binding: ActivityMainBinding
+
+	private var isCloudflareAuthInProgress = false
+
+	private val cloudflareAuthLauncher = registerForActivityResult(
+		ActivityResultContracts.StartActivityForResult()
+	) { result ->
+		isCloudflareAuthInProgress = false
+		if (result.resultCode == RESULT_OK) {
+			Timber.i("Cloudflare re-authentication successful")
+		} else {
+			Timber.w("Cloudflare re-authentication cancelled, returning to login")
+			startActivity(Intent(this, StartupActivity::class.java))
+			finish()
+		}
+	}
 
 	private val backPressedCallback = object : OnBackPressedCallback(false) {
 		override fun handleOnBackPressed() {
@@ -56,6 +75,19 @@ class MainActivity : FragmentActivity() {
 		super.onCreate(savedInstanceState)
 
 		if (!validateAuthentication()) return
+
+		// Observe Cloudflare cookie expiration and trigger re-auth
+		cloudflareAuthInterceptor.authExpired
+			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
+			.onEach { serverUrl ->
+				if (!isCloudflareAuthInProgress) {
+					isCloudflareAuthInProgress = true
+					Timber.w("Cloudflare cookie expired for %s, launching re-auth", serverUrl)
+					cloudflareAuthLauncher.launch(
+						CloudflareAuthActivity.createIntent(this, serverUrl)
+					)
+				}
+			}.launchIn(lifecycleScope)
 
 		interactionTrackerViewModel.keepScreenOn.flowWithLifecycle(lifecycle, Lifecycle.State.RESUMED)
 			.onEach { keepScreenOn ->

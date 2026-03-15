@@ -1,8 +1,11 @@
 package org.jellyfin.androidtv.data.service
 
 import android.content.Context
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.palette.graphics.Palette
 import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.toBitmap
@@ -51,9 +54,11 @@ class BackgroundService(
 	private var _currentBackground = MutableStateFlow<ImageBitmap?>(null)
 	private var _blurBackground = MutableStateFlow(false)
 	private var _enabled = MutableStateFlow(true)
+	private var _dominantColor = MutableStateFlow(Color.Transparent)
 	val currentBackground get() = _currentBackground.asStateFlow()
 	val blurBackground get() = _blurBackground.asStateFlow()
 	val enabled get() = _enabled.asStateFlow()
+	val dominantColor get() = _dominantColor.asStateFlow()
 
 	/**
 	 * Use all available backdrops from [baseItem] as background.
@@ -105,10 +110,23 @@ class BackgroundService(
 		// Cancel current loading job
 		loadBackgroundsJob?.cancel()
 		loadBackgroundsJob = scope.launch(Dispatchers.IO) {
+			val bitmaps = mutableListOf<Bitmap>()
 			_backgrounds = backdropUrls.mapNotNull { url ->
-				imageLoader.execute(
+				val bitmap = imageLoader.execute(
 					request = ImageRequest.Builder(context).data(url).build()
-				).image?.toBitmap()?.asImageBitmap()
+				).image?.toBitmap()
+				bitmap?.also { bitmaps.add(it) }?.asImageBitmap()
+			}
+
+			// Extract dominant color from first backdrop
+			bitmaps.firstOrNull()?.let { bitmap ->
+				try {
+					val palette = Palette.from(bitmap).generate()
+					val dominant = palette.getDominantColor(0)
+					if (dominant != 0) _dominantColor.value = Color(dominant)
+				} catch (_: Exception) {
+					// Ignore palette extraction failures
+				}
 			}
 
 			// Go to first background

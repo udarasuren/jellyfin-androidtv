@@ -127,6 +127,9 @@ dependencies {
 	implementation(libs.androidx.cardview)
 	implementation(libs.androidx.startup)
 	implementation(libs.bundles.androidx.compose)
+	implementation(libs.androidx.tv.foundation)
+	implementation(libs.androidx.tv.material)
+	implementation(libs.androidx.palette)
 	implementation(libs.accompanist.permissions)
 
 	// Dependency Injection

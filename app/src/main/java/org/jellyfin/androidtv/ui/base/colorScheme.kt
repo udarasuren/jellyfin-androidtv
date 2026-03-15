@@ -36,6 +36,21 @@ fun colorScheme(): ColorScheme = ColorScheme(
 	listButtonFocused = Tokens.Color.colorBluegrey800,
 	surface = Tokens.Color.colorBluegrey900,
 	scrim = Tokens.Color.colorBlack.copy(alpha = 0.67f),
+	// Premium surface layering
+	surfaceContainer = Tokens.Color.colorBluegrey900,
+	surfaceContainerHigh = Tokens.Color.colorBluegrey850,
+	surfaceContainerHighest = Tokens.Color.colorBluegrey800,
+	// Accent colors
+	primaryAccent = Tokens.Color.colorCyan500,
+	onPrimaryAccent = Tokens.Color.colorBluegrey975,
+	secondaryAccent = Tokens.Color.colorBluegrey200,
+	// Hero billboard
+	heroScrim = Tokens.Color.colorBlack.copy(alpha = 0.6f),
+	// Focus
+	focusRing = Tokens.Color.colorCyan400,
+	// Progress
+	progressBar = Tokens.Color.colorCyan500,
+	progressBarBackground = Tokens.Color.colorBluegrey700.copy(alpha = 0.6f),
 )
 
 @Immutable
@@ -77,6 +92,26 @@ data class ColorScheme(
 
 	val surface: Color,
 	val scrim: Color,
+
+	// Premium surface layering
+	val surfaceContainer: Color,
+	val surfaceContainerHigh: Color,
+	val surfaceContainerHighest: Color,
+
+	// Accent colors
+	val primaryAccent: Color,
+	val onPrimaryAccent: Color,
+	val secondaryAccent: Color,
+
+	// Hero billboard
+	val heroScrim: Color,
+
+	// Focus
+	val focusRing: Color,
+
+	// Progress
+	val progressBar: Color,
+	val progressBarBackground: Color,
 )
 
 val LocalColorScheme = staticCompositionLocalOf { colorScheme() }

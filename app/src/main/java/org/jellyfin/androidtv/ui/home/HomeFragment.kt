@@ -4,21 +4,16 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.foundation.focusGroup
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
 import androidx.fragment.app.Fragment
-import androidx.fragment.compose.AndroidFragment
 import androidx.fragment.compose.content
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
@@ -30,50 +25,87 @@ import org.jellyfin.androidtv.auth.repository.ServerRepository
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.data.repository.NotificationsRepository
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
+import org.jellyfin.androidtv.ui.composable.detail.DetailOverlay
+import org.jellyfin.androidtv.ui.composable.detail.DetailOverlayViewModel
+import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
+import org.jellyfin.androidtv.ui.navigation.Destinations
+import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbar
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbarActiveButton
+import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import java.util.UUID
 
 class HomeFragment : Fragment() {
 	private val sessionRepository by inject<SessionRepository>()
 	private val serverRepository by inject<ServerRepository>()
 	private val notificationRepository by inject<NotificationsRepository>()
+	private val navigationRepository by inject<NavigationRepository>()
+	private val itemLauncher by inject<ItemLauncher>()
+	private val homeViewModel by viewModel<HomeViewModel>()
+	private val detailViewModel by viewModel<DetailOverlayViewModel>()
 
 	override fun onCreateView(
 		inflater: LayoutInflater,
 		container: ViewGroup?,
 		savedInstanceState: Bundle?
 	) = content {
-		val rowsFocusRequester = remember { FocusRequester() }
-		LaunchedEffect(rowsFocusRequester) { rowsFocusRequester.requestFocus() }
+		val api = inject<ApiClient>().value
+
+		var detailItemId by remember { mutableStateOf<UUID?>(null) }
+		var showDetail by remember { mutableStateOf(false) }
+
+		// Handle back press when detail overlay is visible
+		BackHandler(enabled = showDetail) {
+			showDetail = false
+			detailItemId = null
+		}
 
 		JellyfinTheme {
-			Column {
-				MainToolbar(MainToolbarActiveButton.Home)
+			Box(modifier = Modifier.fillMaxSize()) {
+				Column(modifier = Modifier.fillMaxSize()) {
+					MainToolbar(MainToolbarActiveButton.Home)
 
-				// The leanback code has its own awful focus handling that doesn't work properly with Compose view inteop to workaround this
-				// issue we add custom behavior that only allows focus exit when the current selected row is the first one. Additionally when
-				// we do switch the focus, we reset the leanback state so it won't cause weird behavior when focus is regained
-				var rowsSupportFragment by remember { mutableStateOf<HomeRowsFragment?>(null) }
-				AndroidFragment<HomeRowsFragment>(
-					modifier = Modifier
-						.focusGroup()
-						.focusRequester(rowsFocusRequester)
-						.focusProperties {
-							onExit = {
-								val isFirstRowSelected = rowsSupportFragment?.selectedPosition?.let { it <= 0 } ?: false
-								if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
-									cancelFocusChange()
-								} else {
-									rowsSupportFragment?.selectedPosition = 0
-									rowsSupportFragment?.verticalGridView?.clearFocus()
+					HomeScreen(
+						viewModel = homeViewModel,
+						onItemClick = { item ->
+							when (item.type) {
+								// Libraries browse directly
+								BaseItemKind.USER_VIEW,
+								BaseItemKind.COLLECTION_FOLDER -> navigateToItem(item)
+								// Everything else opens the detail overlay
+								else -> {
+									detailItemId = item.id
+									showDetail = true
 								}
 							}
-						}
-						.fillMaxSize(),
-					onUpdate = { fragment ->
-						rowsSupportFragment = fragment
-					}
+						},
+						onPlayClick = { item -> navigateToItem(item) },
+					)
+				}
+
+				// Detail overlay on top of everything
+				DetailOverlay(
+					visible = showDetail,
+					itemId = detailItemId,
+					viewModel = detailViewModel,
+					api = api,
+					onDismiss = {
+						showDetail = false
+						detailItemId = null
+					},
+					onPlayClick = { item ->
+						showDetail = false
+						detailItemId = null
+						navigateToItem(item)
+					},
+					onItemClick = { item ->
+						// Navigate within the overlay for episodes/similar
+						detailItemId = item.id
+					},
 				)
 			}
 		}
@@ -92,5 +124,22 @@ class HomeFragment : Fragment() {
 				notificationRepository.updateServerNotifications(server)
 			}
 			.launchIn(viewLifecycleOwner.lifecycleScope)
+	}
+
+	override fun onResume() {
+		super.onResume()
+		homeViewModel.refresh()
+	}
+
+	private fun navigateToItem(item: BaseItemDto) {
+		when (item.type) {
+			BaseItemKind.USER_VIEW,
+			BaseItemKind.COLLECTION_FOLDER -> itemLauncher.launchUserView(item)
+			BaseItemKind.SERIES,
+			BaseItemKind.MUSIC_ARTIST -> navigationRepository.navigate(Destinations.itemDetails(item.id))
+			BaseItemKind.MUSIC_ALBUM,
+			BaseItemKind.PLAYLIST -> navigationRepository.navigate(Destinations.itemList(item.id))
+			else -> navigationRepository.navigate(Destinations.itemDetails(item.id))
+		}
 	}
 }

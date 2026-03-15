@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.service.BackgroundService
+import org.jellyfin.androidtv.ui.composable.ambient.AmbientBackground
 import org.koin.compose.koinInject
 
 @Composable
@@ -66,6 +67,9 @@ fun AppBackground() {
 	val currentBackground by backgroundService.currentBackground.collectAsState()
 	val blurBackground by backgroundService.blurBackground.collectAsState()
 	val enabled by backgroundService.enabled.collectAsState()
+
+	// Ambient color overlay (always active)
+	AmbientBackground(dominantColor = backgroundService.dominantColor)
 
 	if (enabled) {
 		AnimatedContent(
