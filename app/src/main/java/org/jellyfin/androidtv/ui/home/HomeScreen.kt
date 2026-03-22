@@ -94,7 +94,7 @@ private fun HomeScreenContent(
 			item(key = "hero") {
 				Box(modifier = Modifier
 					.fillMaxWidth()
-					.height(400.dp)
+					.height(236.dp)
 				) {
 					HeroBillboard(
 						items = state.heroItems,

@@ -1,26 +1,26 @@
 package org.jellyfin.androidtv.ui.composable.billboard
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,9 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -51,8 +49,7 @@ import org.jellyfin.androidtv.ui.composable.card.CardImage
 import org.jellyfin.sdk.model.api.BaseItemDto
 
 private const val AUTO_ADVANCE_MS = 8000L
-private const val CROSSFADE_MS = 800
-private const val ZOOM_DURATION_MS = 12000
+private const val CROSSFADE_MS = 600
 
 @Composable
 fun HeroBillboard(
@@ -70,20 +67,6 @@ fun HeroBillboard(
 	var isFocused by remember { mutableStateOf(false) }
 	val currentItem = items[currentIndex % items.size]
 
-	// Slow zoom animation on the backdrop (Ken Burns effect)
-	var zoomTarget by remember { mutableStateOf(1.02f) }
-	LaunchedEffect(currentIndex) {
-		zoomTarget = 1.0f
-		// Small delay then start zooming
-		delay(100)
-		zoomTarget = 1.06f
-	}
-	val zoomScale by animateFloatAsState(
-		targetValue = zoomTarget,
-		animationSpec = tween(durationMillis = ZOOM_DURATION_MS),
-		label = "billboardZoom",
-	)
-
 	// Auto-advance timer
 	LaunchedEffect(currentIndex, isFocused) {
 		if (!isFocused && items.size > 1) {
@@ -92,28 +75,19 @@ fun HeroBillboard(
 		}
 	}
 
-	// Text entrance key — triggers staggered animation on item change
-	var textVisible by remember { mutableStateOf(false) }
-	LaunchedEffect(currentIndex) {
-		textVisible = false
-		delay(300) // Wait for crossfade to start
-		textVisible = true
-	}
-
 	Box(
 		modifier = modifier
 			.fillMaxWidth()
-			.height(400.dp)
+			.height(220.dp)
+			.padding(horizontal = 48.dp, vertical = 8.dp)
 			.onFocusChanged { state ->
 				val hadFocus = isFocused
 				isFocused = state.hasFocus
 				if (state.hasFocus && !hadFocus) onFocusGained()
 			}
 			.onPreviewKeyEvent { event ->
-				// Intercept UP key before children — block until billboard is fully scrolled into view
 				if (event.key == Key.DirectionUp && event.type == KeyEventType.KeyDown) {
 					if (!canExitUp()) {
-						// Trigger scroll to top, consume the event
 						onFocusGained()
 						true
 					} else false
@@ -135,117 +109,82 @@ fun HeroBillboard(
 				} else false
 			},
 	) {
-		// Backdrop with crossfade + zoom
+		// Compact banner: backdrop left, info right
 		AnimatedContent(
 			targetState = currentItem,
 			transitionSpec = {
 				fadeIn(tween(CROSSFADE_MS)) togetherWith fadeOut(tween(CROSSFADE_MS))
 			},
 			label = "BillboardTransition",
+			modifier = Modifier.fillMaxSize(),
 		) { item ->
-			CardImage(
-				url = backdropUrlProvider(item),
+			Row(
 				modifier = Modifier
 					.fillMaxSize()
-					.graphicsLayer {
-						scaleX = zoomScale
-						scaleY = zoomScale
-					},
-			)
-		}
-
-		// Bottom gradient scrim
-		Box(
-			modifier = Modifier
-				.fillMaxWidth()
-				.height(280.dp)
-				.align(Alignment.BottomCenter)
-				.background(
-					Brush.verticalGradient(
-						colors = listOf(
-							Color.Transparent,
-							JellyfinTheme.colorScheme.background.copy(alpha = 0.5f),
-							JellyfinTheme.colorScheme.background.copy(alpha = 0.85f),
-							JellyfinTheme.colorScheme.background,
-						),
-					)
-				),
-		)
-
-		// Content overlay with staggered entrance
-		Column(
-			modifier = Modifier
-				.align(Alignment.BottomStart)
-				.padding(start = 48.dp, end = 48.dp, bottom = 32.dp),
-		) {
-			// Title — slides in first
-			AnimatedVisibility(
-				visible = textVisible,
-				enter = fadeIn(tween(400)) + slideInVertically(tween(500)) { it / 2 },
+					.clip(RoundedCornerShape(16.dp))
+					.background(JellyfinTheme.colorScheme.surfaceContainerHigh),
 			) {
-				Text(
-					text = currentItem.name.orEmpty(),
-					style = JellyfinTheme.typography.displayMedium,
-					color = Color.White,
-					maxLines = 1,
-					overflow = TextOverflow.Ellipsis,
+				// Backdrop thumbnail
+				CardImage(
+					url = backdropUrlProvider(item),
+					modifier = Modifier
+						.fillMaxHeight()
+						.aspectRatio(16f / 9f)
+						.clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)),
 				)
-			}
 
-			Spacer(modifier = Modifier.height(4.dp))
-
-			// Metadata — slides in with delay
-			val metaItems = buildList {
-				currentItem.productionYear?.let { add(it.toString()) }
-				currentItem.officialRating?.let { add(it) }
-				currentItem.genres?.take(3)?.let { addAll(it) }
-			}
-			if (metaItems.isNotEmpty()) {
-				AnimatedVisibility(
-					visible = textVisible,
-					enter = fadeIn(tween(400, delayMillis = 100)) + slideInVertically(tween(500, delayMillis = 100)) { it / 2 },
+				// Info
+				Column(
+					modifier = Modifier
+						.weight(1f)
+						.fillMaxHeight()
+						.padding(horizontal = 24.dp, vertical = 16.dp),
+					verticalArrangement = Arrangement.Center,
 				) {
 					Text(
-						text = metaItems.joinToString(" \u2022 "),
-						style = JellyfinTheme.typography.bodyMedium,
-						color = Color.White.copy(alpha = 0.8f),
+						text = item.name.orEmpty(),
+						style = JellyfinTheme.typography.titleLarge,
+						color = JellyfinTheme.colorScheme.onBackground,
 						maxLines = 1,
-					)
-				}
-			}
-
-			Spacer(modifier = Modifier.height(8.dp))
-
-			// Synopsis — slides in with more delay
-			currentItem.overview?.let { overview ->
-				AnimatedVisibility(
-					visible = textVisible,
-					enter = fadeIn(tween(400, delayMillis = 200)) + slideInVertically(tween(500, delayMillis = 200)) { it / 2 },
-				) {
-					Text(
-						text = overview,
-						style = JellyfinTheme.typography.bodyMedium,
-						color = Color.White.copy(alpha = 0.7f),
-						maxLines = 2,
 						overflow = TextOverflow.Ellipsis,
-						modifier = Modifier.fillMaxWidth(0.5f),
 					)
-				}
-			}
 
-			Spacer(modifier = Modifier.height(16.dp))
+					Spacer(modifier = Modifier.height(4.dp))
 
-			// Buttons — slide in last
-			AnimatedVisibility(
-				visible = textVisible,
-				enter = fadeIn(tween(400, delayMillis = 300)) + slideInVertically(tween(500, delayMillis = 300)) { it / 2 },
-			) {
-				Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-					Button(onClick = { onPlayClick(currentItem) }) {
-						Text(text = "\u25B6  Play", style = JellyfinTheme.typography.labelLarge)
+					val metaItems = buildList {
+						item.productionYear?.let { add(it.toString()) }
+						item.officialRating?.let { add(it) }
+						item.genres?.take(2)?.let { addAll(it) }
 					}
-					Button(onClick = { onInfoClick(currentItem) }) {
-						Text(text = "More Info", style = JellyfinTheme.typography.labelLarge)
+					if (metaItems.isNotEmpty()) {
+						Text(
+							text = metaItems.joinToString(" • "),
+							style = JellyfinTheme.typography.bodyMedium,
+							color = JellyfinTheme.colorScheme.secondaryAccent,
+							maxLines = 1,
+						)
+					}
+
+					item.overview?.let { overview ->
+						Spacer(modifier = Modifier.height(6.dp))
+						Text(
+							text = overview,
+							style = JellyfinTheme.typography.bodyMedium,
+							color = JellyfinTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+							maxLines = 2,
+							overflow = TextOverflow.Ellipsis,
+						)
+					}
+
+					Spacer(modifier = Modifier.height(12.dp))
+
+					Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+						Button(onClick = { onPlayClick(item) }) {
+							Text(text = "\u25B6  Play", style = JellyfinTheme.typography.labelLarge)
+						}
+						Button(onClick = { onInfoClick(item) }) {
+							Text(text = "More Info", style = JellyfinTheme.typography.labelLarge)
+						}
 					}
 				}
 			}
@@ -256,18 +195,18 @@ fun HeroBillboard(
 			Row(
 				modifier = Modifier
 					.align(Alignment.BottomCenter)
-					.padding(bottom = 12.dp),
-				horizontalArrangement = Arrangement.spacedBy(6.dp),
+					.padding(bottom = 6.dp),
+				horizontalArrangement = Arrangement.spacedBy(4.dp),
 			) {
 				items.forEachIndexed { index, _ ->
 					val isActive = index == currentIndex % items.size
 					Box(
 						modifier = Modifier
-							.size(if (isActive) 8.dp else 6.dp)
+							.size(if (isActive) 6.dp else 4.dp)
 							.clip(CircleShape)
 							.background(
-								if (isActive) Color.White
-								else Color.White.copy(alpha = 0.4f)
+								if (isActive) JellyfinTheme.colorScheme.primaryAccent
+								else JellyfinTheme.colorScheme.secondaryAccent.copy(alpha = 0.3f)
 							),
 					)
 				}

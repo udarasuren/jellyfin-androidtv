@@ -11,6 +11,7 @@ import org.jellyfin.androidtv.ui.browsing.ByLetterFragment
 import org.jellyfin.androidtv.ui.browsing.CollectionFragment
 import org.jellyfin.androidtv.ui.browsing.GenericFolderFragment
 import org.jellyfin.androidtv.ui.browsing.SuggestedMoviesFragment
+import org.jellyfin.androidtv.ui.composable.detail.PremiumDetailFragment
 import org.jellyfin.androidtv.ui.home.HomeFragment
 import org.jellyfin.androidtv.ui.itemdetail.FullDetailsFragment
 import org.jellyfin.androidtv.ui.itemdetail.ItemListFragment
@@ -88,6 +89,10 @@ object Destinations {
 	// Item details
 	fun itemDetails(item: UUID) = fragmentDestination<FullDetailsFragment>(
 		"ItemId" to item.toString(),
+	)
+
+	fun premiumDetail(item: UUID) = fragmentDestination<PremiumDetailFragment>(
+		PremiumDetailFragment.ARG_ITEM_ID to item.toString(),
 	)
 
 	// TODO only pass item id instead of complete JSON to browsing destinations

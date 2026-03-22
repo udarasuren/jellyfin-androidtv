@@ -44,7 +44,8 @@
       "Bash(~/Library/Android/sdk/platform-tools/adb install:*)",
       "Bash(~/Library/Android/sdk/platform-tools/adb logcat:*)",
       "Bash(find /Users/udaraweerasuriya/.gradle/caches -path *coil*compose* -name *.jar)",
-      "Bash(grep -E \"\\\\.\\(kt|java\\)$\")"
+      "Bash(grep -E \"\\\\.\\(kt|java\\)$\")",
+      "Bash(~/Library/Android/sdk/build-tools/36.0.0/apksigner sign:*)"
     ]
   }
 }
